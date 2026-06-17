@@ -1,7 +1,14 @@
 {
   "timeZone": "America/New_York",
   "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "AdSense",
+        "version": "v2",
+        "serviceId": "adsense"
+      }
+    ]
   },
-  "exceptionLogging": "STACKDRIVER",
-  "runtimeVersion": "V8"
+  "runtimeVersion": "V8",
+  "exceptionLogging": "STACKDRIVER"
 }

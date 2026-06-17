@@ -1,33 +1,21 @@
-// helper to skip invalid dates that would prevent the script from running
+// date/time function to ensure correct formatting
 function safeDate(value) {
   if (!value) return null;
-
   const d = (value instanceof Date) ? value : new Date(value);
-
   return isNaN(d.getTime()) ? null : d;
 }
 
+// main function to generate .xacts file
 function generateXacts() {
+
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const data = sheet.getDataRange().getValues();
 
-  // Remove header row
-  data.shift();
+  data.shift(); // remove headers
 
   const records = [];
 
   data.forEach(row => {
-    // Column mapping (to match Google sheet):
-    // 0 (A) Type
-    // 1 (B) Timestamp
-    // 2 (C) Patron Barcode
-    // 3 (D) Item Barcode
-    // 4 (E) Non-cataloged Type
-    // 5 (F) Checkout Date
-    // 6 (G) Due Date
-    // 7 (H) Checkin Date
-    // 8 (I) First Name
-    // 9 (J) Last Name
 
     const type = (row[0] || "").toString().toLowerCase();
 
@@ -39,34 +27,33 @@ function generateXacts() {
     const dueDate = safeDate(row[6]);
     const checkinTime = safeDate(row[7]);
 
-    // Logger.log(JSON.stringify(row));
-
-    // checkout function with safeguard to skip rows with missing or invalid dates; otherwise script will fail if it encounters an error
+    // checkouts
     if (type === "checkout") {
 
-    if (!checkoutTime) {
-      Logger.log("Skipping bad checkout row: " + JSON.stringify(row));
+      if (!checkoutTime) {
+        Logger.log("Skipping checkout row: " + JSON.stringify(row));
+        return;
+      }
+
+      records.push(JSON.stringify({
+        timestamp: Math.floor(checkoutTime.getTime() / 1000),
+        type: "checkout",
+        delta: 0,
+        noncat_type: noncatType,
+        patron_barcode: patronBarcode,
+        barcode: itemBarcode,
+        due_date: dueDate ? dueDate.toISOString() : "",
+        checkout_time: checkoutTime.toISOString()
+      }));
+
       return;
     }
 
-    records.push(JSON.stringify({
-      timestamp: Math.floor(checkoutTime.getTime() / 1000),
-      type: "checkout",
-      delta: 0,
-      noncat_type: noncatType,
-      patron_barcode: patronBarcode,
-      barcode: itemBarcode,
-      due_date: dueDate ? dueDate.toISOString() : "",
-      checkout_time: checkoutTime.toISOString()
-    }));
-
-    return;
-    }
-    // check in function
+    // check-ins
     if (type === "checkin") {
 
       if (!checkinTime) {
-        Logger.log("Skipping bad checkin row: " + JSON.stringify(row));
+        Logger.log("Skipping checkin row: " + JSON.stringify(row));
         return;
       }
 
@@ -85,14 +72,17 @@ function generateXacts() {
       return;
     }
 
-    // just in case there's something odd in the type column
-    Logger.log("Unknown type row skipped: " + JSON.stringify(row));
-    });
+    // logger to prevent an invalid row from ruining everything
+    Logger.log("Unknown row type: " + JSON.stringify(row));
+  });
+
   const content = records.join("\n");
 
-  // Logger.log("TOTAL RECORDS: " + records.length);
+  Logger.log("TOTAL RECORDS: " + records.length);
+
+  // same file name each time, but generated file can be renamed as needed
   const file = DriveApp.createFile(
-    "offline_checkouts.xacts", // generic file name, but can be updated as needed
+    "offline_checkouts.xacts",
     content,
     MimeType.PLAIN_TEXT
   );
@@ -104,9 +94,10 @@ function generateXacts() {
   );
 }
 
+// button to generate the .xacts file!
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu("Evergreen") // button in the Google sheet to start .xacts file generation
+    .createMenu("Evergreen")
     .addItem("Generate .xacts File", "generateXacts")
     .addToUi();
 }
